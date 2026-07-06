@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#160a26">
+<title>Noriyuki Mori — Embondeiro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Shippori+Mincho:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/base.css">
+<style>
+  body {
+    background: linear-gradient(180deg, #12081f 0%, #33123f 34%, #7c2b45 60%, #c85a35 82%, #e8873c 100%);
+    font-family: 'Cormorant Garamond', serif;
+  }
+  .name-main {
+    font-weight: 600; letter-spacing: 0.1em;
+    color: #fdf3e3;
+    text-shadow: 0 0 40px rgba(240,150,70,0.45);
+  }
+  .name-sub { font-family: 'Shippori Mincho', serif; color: #f5ddc2; }
+  .country-nav a.active { color: #ffb15e; opacity: 1; border-color: #ffb15e; }
+</style>
+</head>
+<body>
+<div id="bg"></div>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }</script>
+<script type="module">
+import * as THREE from 'three';
+import { setupUI, createApp, createParallax, canvasTexture, glowTexture } from './js/ui.js';
+
+setupUI({
+  current: 'mz',
+  nameMain: 'Noriyuki Mori',
+  nameSub: '茂里 憲之',
+  titleMain: 'Profissão principal: Desempregado',
+  titleSub: 'Atividades paralelas: Escritor · Investigador · Duelista',
+  qr: { dark: '#33121f', light: '#fff3e2', glow: 'rgba(245,150,70,0.45)' },
+});
+
+const { renderer, scene, camera } = createApp(THREE);
+camera.position.set(0, 0, 26);
+const parallax = createParallax();
+
+// ---- 大きな夕陽 ----
+const sun = new THREE.Sprite(new THREE.SpriteMaterial({
+  map: canvasTexture(THREE, 256, (ctx, s) => {
+    const g = ctx.createRadialGradient(s/2, s/2, 0, s/2, s/2, s/2);
+    g.addColorStop(0, 'rgba(255,230,170,1)');
+    g.addColorStop(0.30, 'rgba(255,190,90,0.95)');
+    g.addColorStop(0.38, 'rgba(255,150,60,0.5)');
+    g.addColorStop(1, 'rgba(255,120,50,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, s, s);
+  }),
+  transparent: true, depthWrite: false,
+}));
+sun.scale.setScalar(34);
+sun.position.set(6, -9, -50);
+scene.add(sun);
+
+// ---- バオバブ (embondeiro) silhouette ----
+function drawBranch(ctx, x, y, angle, len, width, depth) {
+  if (depth === 0 || len < 6) return;
+  const x2 = x + Math.cos(angle) * len;
+  const y2 = y - Math.sin(angle) * len;
+  ctx.strokeStyle = '#150a14';
+  ctx.lineCap = 'round';
+  ctx.lineWidth = width;
+  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x2, y2); ctx.stroke();
+  const n = 2 + Math.floor(Math.random() * 2);
+  for (let i = 0; i < n; i++) {
+    const na = angle + (Math.random() - 0.5) * 1.5;
+    drawBranch(ctx, x2, y2, na, len * (0.55 + Math.random() * 0.2), width * 0.55, depth - 1);
+  }
+}
+const baobabTex = canvasTexture(THREE, 512, (ctx, s) => {
+  // thick bottle trunk
+  ctx.fillStyle = '#150a14';
+  ctx.beginPath();
+  ctx.moveTo(s*0.40, s);
+  ctx.bezierCurveTo(s*0.40, s*0.62, s*0.44, s*0.5, s*0.46, s*0.42);
+  ctx.lineTo(s*0.54, s*0.42);
+  ctx.bezierCurveTo(s*0.56, s*0.5, s*0.60, s*0.62, s*0.60, s);
+  ctx.closePath(); ctx.fill();
+  // crown of gnarled branches
+  for (let i = 0; i < 7; i++) {
+    const a = Math.PI * 0.5 + (i - 3) * 0.38 + (Math.random() - 0.5) * 0.15;
+    drawBranch(ctx, s*0.5, s*0.44, a, s*0.11, s*0.028, 4);
+  }
+});
+const baobab = new THREE.Mesh(
+  new THREE.PlaneGeometry(30, 30),
+  new THREE.MeshBasicMaterial({ map: baobabTex, transparent: true, depthWrite: false })
+);
+baobab.position.set(-8, -8, -18);
+scene.add(baobab);
+
+// ---- 地平線 (dark ground) ----
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(200, 26),
+  new THREE.MeshBasicMaterial({
+    map: canvasTexture(THREE, 256, (ctx, s) => {
+      const g = ctx.createLinearGradient(0, 0, 0, s);
+      g.addColorStop(0, 'rgba(21,10,20,0)');
+      g.addColorStop(0.25, 'rgba(21,10,20,0.9)');
+      g.addColorStop(1, 'rgba(12,5,14,1)');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, s, s);
+    }),
+    transparent: true, depthWrite: false,
+  })
+);
+ground.position.set(0, -21, -16);
+scene.add(ground);
+
+// ---- 星 (stars fading in toward the top) ----
+const starTex = glowTexture(THREE, 'rgba(255,240,220,1)');
+const STARS = 500;
+const stPos = new Float32Array(STARS * 3);
+for (let i = 0; i < STARS; i++) {
+  stPos[i*3] = (Math.random() - 0.5) * 110;
+  stPos[i*3+1] = 2 + Math.random() * 45;
+  stPos[i*3+2] = -60 - Math.random() * 20;
+}
+const stGeo = new THREE.BufferGeometry();
+stGeo.setAttribute('position', new THREE.BufferAttribute(stPos, 3));
+const stars = new THREE.Points(stGeo, new THREE.PointsMaterial({
+  map: starTex, size: 0.55, transparent: true, opacity: 0.9,
+  depthWrite: false, blending: THREE.AdditiveBlending, color: 0xfff0d8,
+}));
+scene.add(stars);
+
+// ---- 舞い上がる火の粉/塵 (embers) ----
+const emberTex = glowTexture(THREE, 'rgba(255,190,120,1)');
+const EMB = 140;
+const eDat = [];
+const ePos = new Float32Array(EMB * 3);
+for (let i = 0; i < EMB; i++) {
+  eDat.push({
+    x: (Math.random() - 0.5) * 50, y: -16 + Math.random() * 30, z: -25 + Math.random() * 20,
+    rise: 0.4 + Math.random() * 0.9, ph: Math.random() * 6.28, sw: 0.4 + Math.random() * 0.8,
+  });
+}
+const eGeo = new THREE.BufferGeometry();
+eGeo.setAttribute('position', new THREE.BufferAttribute(ePos, 3));
+const embers = new THREE.Points(eGeo, new THREE.PointsMaterial({
+  map: emberTex, size: 0.45, transparent: true, opacity: 0.75,
+  depthWrite: false, blending: THREE.AdditiveBlending, color: 0xffc47a,
+}));
+scene.add(embers);
+
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const t = clock.getElapsedTime();
+  parallax.update();
+
+  sun.material.opacity = 0.92 + Math.sin(t * 0.8) * 0.06;
+  stars.material.opacity = 0.65 + Math.sin(t * 1.1) * 0.25;
+
+  const pos = embers.geometry.attributes.position.array;
+  for (let i = 0; i < EMB; i++) {
+    const d = eDat[i];
+    d.y += d.rise * dt;
+    if (d.y > 16) d.y = -16;
+    pos[i*3]   = d.x + Math.sin(t * d.sw + d.ph) * 1.4;
+    pos[i*3+1] = d.y;
+    pos[i*3+2] = d.z;
+  }
+  embers.geometry.attributes.position.needsUpdate = true;
+
+  camera.position.x = parallax.x * 2.8;
+  camera.position.y = -parallax.y * 1.8;
+  camera.lookAt(0, -2, -20);
+  renderer.render(scene, camera);
+});
+</script>
+</body>
+</html>

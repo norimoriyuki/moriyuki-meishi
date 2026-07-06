@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#e9e5d8">
+<title>茂里宪之 — 山水</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;600&family=Cormorant+Garamond:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/base.css">
+<style>
+  body {
+    background: linear-gradient(180deg, #f2efe4 0%, #e9e5d8 45%, #d8d6c6 80%, #c9c9ba 100%);
+    font-family: 'Noto Serif SC', serif;
+  }
+  .name-main { color: #26333a; font-weight: 600; }
+  .name-sub { font-family: 'Cormorant Garamond', serif; color: #3d4c52; }
+  .name-extra { color: #55636a; }
+  .seal {
+    display: inline-block; margin-top: 6px;
+    background: #b23a2a; color: #f6f1e4;
+    font-size: 15px; line-height: 1.15; padding: 7px 8px;
+    letter-spacing: 0.1em; writing-mode: vertical-rl;
+    border-radius: 3px; transform: rotate(-2deg);
+    box-shadow: 0 2px 10px rgba(178,58,42,0.35);
+    animation: fadeIn 2s ease 1.4s both;
+  }
+  .country-nav a.active { border-color: #b23a2a; color: #b23a2a; opacity: 1; }
+</style>
+</head>
+<body class="theme-light">
+<div id="bg"></div>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }</script>
+<script type="module">
+import * as THREE from 'three';
+import { setupUI, createApp, createParallax, canvasTexture, glowTexture } from './js/ui.js';
+
+setupUI({
+  current: 'cn',
+  nameMain: '茂里宪之',
+  nameSub: 'MÀO LǏ XIÀN ZHĪ',
+  nameExtra: 'NORIYUKI MORI',
+  titleMain: '主业：无业',
+  titleSub: '副业：作家 · 研究者 · 决斗者',
+  qr: { dark: '#26333a', light: '#f7f3e7', glow: 'rgba(178,58,42,0.25)' },
+});
+// 印章
+document.querySelector('.name-block').insertAdjacentHTML('beforeend', '<span class="seal">茂里</span>');
+
+const { renderer, scene, camera } = createApp(THREE);
+camera.position.set(0, 0, 24);
+const parallax = createParallax();
+
+// ---- 水墨山峦 (layered ink ridges) ----
+function ridgeTexture(ink, alpha, seed) {
+  return canvasTexture(THREE, 1024, (ctx, s) => {
+    const rnd = (n) => Math.abs(Math.sin(seed * 127.1 + n * 311.7)) % 1;
+    const base = s * 0.42;
+    ctx.beginPath();
+    ctx.moveTo(0, s);
+    for (let x = 0; x <= s; x += 8) {
+      const u = x / s;
+      let y = base
+        + Math.sin(u * 3.1 + seed * 7) * s * 0.10
+        + Math.sin(u * 9.7 + seed * 13) * s * 0.045
+        + Math.sin(u * 23 + seed * 29) * s * 0.016 * rnd(x);
+      ctx.lineTo(x, y);
+    }
+    ctx.lineTo(s, s);
+    ctx.closePath();
+    const g = ctx.createLinearGradient(0, base - s * 0.18, 0, s);
+    g.addColorStop(0, ink.replace('A', String(alpha)));
+    g.addColorStop(0.55, ink.replace('A', String(alpha * 0.9)));
+    g.addColorStop(1, ink.replace('A', '0'));
+    ctx.fillStyle = g;
+    ctx.fill();
+  });
+}
+const layers = [
+  { ink: 'rgba(150,168,168,A)', a: 0.85, z: -60, y: 4,  w: 150, h: 46 },
+  { ink: 'rgba(112,134,136,A)', a: 0.9,  z: -45, y: 0,  w: 130, h: 42 },
+  { ink: 'rgba(74,98,102,A)',   a: 0.92, z: -32, y: -4, w: 110, h: 40 },
+  { ink: 'rgba(44,66,72,A)',    a: 0.95, z: -20, y: -9, w: 90,  h: 36 },
+  { ink: 'rgba(28,44,50,A)',    a: 1.0,  z: -11, y: -14, w: 74, h: 32 },
+];
+const mountains = layers.map((L, i) => {
+  const m = new THREE.Mesh(
+    new THREE.PlaneGeometry(L.w, L.h),
+    new THREE.MeshBasicMaterial({
+      map: ridgeTexture(L.ink, L.a, i + 1),
+      transparent: true, depthWrite: false,
+    })
+  );
+  m.position.set(0, L.y, L.z);
+  return m;
+});
+mountains.forEach(m => scene.add(m));
+
+// ---- 云雾 ----
+const mistTex = glowTexture(THREE, 'rgba(244,242,232,0.9)');
+const mists = [];
+for (let i = 0; i < 9; i++) {
+  const m = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: mistTex, transparent: true, opacity: 0.10 + Math.random() * 0.12, depthWrite: false,
+  }));
+  m.scale.set(34 + Math.random() * 26, 7 + Math.random() * 6, 1);
+  m.position.set((Math.random() - 0.5) * 70, -8 + Math.random() * 12, -14 - Math.random() * 40);
+  m.userData.speed = (0.2 + Math.random() * 0.35) * (i % 2 ? 1 : -1);
+  mists.push(m); scene.add(m);
+}
+
+// ---- 朱色の太陽 (ink painting sun) ----
+const sun = new THREE.Sprite(new THREE.SpriteMaterial({
+  map: canvasTexture(THREE, 128, (ctx, s) => {
+    const g = ctx.createRadialGradient(s/2, s/2, 0, s/2, s/2, s/2);
+    g.addColorStop(0, 'rgba(196,74,58,0.9)');
+    g.addColorStop(0.55, 'rgba(196,74,58,0.75)');
+    g.addColorStop(0.62, 'rgba(196,74,58,0.15)');
+    g.addColorStop(1, 'rgba(196,74,58,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, s, s);
+  }),
+  transparent: true, depthWrite: false,
+}));
+sun.scale.setScalar(10);
+sun.position.set(-12, 12, -55);
+scene.add(sun);
+
+// ---- 梅の花びら (falling plum petals) ----
+const plumTex = canvasTexture(THREE, 48, (ctx, s) => {
+  const g = ctx.createRadialGradient(s/2, s/2, 1, s/2, s/2, s/2);
+  g.addColorStop(0, 'rgba(202,84,90,0.95)');
+  g.addColorStop(1, 'rgba(170,52,60,0.6)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.ellipse(s/2, s/2, s*0.28, s*0.4, 0.5, 0, Math.PI * 2);
+  ctx.fill();
+});
+const PL = 90;
+const plumGeo = new THREE.PlaneGeometry(0.5, 0.5);
+const plumMat = new THREE.MeshBasicMaterial({ map: plumTex, transparent: true, depthWrite: false, side: THREE.DoubleSide });
+const plums = new THREE.InstancedMesh(plumGeo, plumMat, PL);
+const PD = [];
+for (let i = 0; i < PL; i++) {
+  PD.push({
+    x: (Math.random() - 0.5) * 46, y: -16 + Math.random() * 34, z: -6 - Math.random() * 18,
+    fall: 0.5 + Math.random() * 0.9, ph: Math.random() * 6.28,
+    r: Math.random() * 6.28, rs: (Math.random() - 0.5) * 2,
+    s: 0.5 + Math.random() * 0.7,
+  });
+}
+scene.add(plums);
+const dummy = new THREE.Object3D();
+
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const t = clock.getElapsedTime();
+  parallax.update();
+
+  mists.forEach((m) => {
+    m.position.x += m.userData.speed * dt;
+    if (m.position.x > 45) m.position.x = -45;
+    if (m.position.x < -45) m.position.x = 45;
+  });
+
+  for (let i = 0; i < PL; i++) {
+    const p = PD[i];
+    p.y -= p.fall * dt;
+    p.x += Math.sin(t * 0.6 + p.ph) * 0.5 * dt;
+    p.r += p.rs * dt;
+    if (p.y < -16) { p.y = 18; p.x = (Math.random() - 0.5) * 46; }
+    dummy.position.set(p.x, p.y, p.z);
+    dummy.rotation.set(p.r, p.r * 0.7, p.r * 0.4);
+    dummy.scale.setScalar(p.s);
+    dummy.updateMatrix();
+    plums.setMatrixAt(i, dummy.matrix);
+  }
+  plums.instanceMatrix.needsUpdate = true;
+
+  camera.position.x = parallax.x * 3.2;
+  camera.position.y = -parallax.y * 2.0;
+  camera.lookAt(0, 0, -20);
+  renderer.render(scene, camera);
+});
+</script>
+</body>
+</html>

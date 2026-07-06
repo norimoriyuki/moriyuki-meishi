@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0a0618">
+<title>茂里 憲之 — 夜桜</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;600&family=Cormorant+Garamond:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/base.css">
+<style>
+  body {
+    background: linear-gradient(180deg, #070412 0%, #150a2b 38%, #2b163f 70%, #472549 100%);
+    font-family: 'Shippori Mincho', serif;
+  }
+  .name-main.vertical {
+    writing-mode: vertical-rl;
+    font-size: clamp(46px, 13vw, 78px);
+    letter-spacing: 0.28em;
+    color: #fbf3f5;
+    text-shadow: 0 0 40px rgba(240,160,200,0.35);
+  }
+  .name-sub { font-family: 'Cormorant Garamond', serif; color: #e9d9e6; }
+</style>
+</head>
+<body>
+<div id="bg"></div>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }</script>
+<script type="module">
+import * as THREE from 'three';
+import { setupUI, createApp, createParallax, canvasTexture, glowTexture } from './js/ui.js';
+
+setupUI({
+  current: 'jp',
+  nameMain: '茂里 憲之',
+  mainClass: 'vertical',
+  nameSub: 'NORIYUKI MORI',
+  titleMain: '本業：無職',
+  titleSub: '副業：作家・研究者・決闘者',
+  qr: { dark: '#3a1233', light: '#fff4f8', glow: 'rgba(240,160,205,0.4)' },
+});
+
+const { renderer, scene, camera } = createApp(THREE);
+camera.position.set(0, 0, 26);
+const parallax = createParallax();
+
+// ---- 月 ----
+const moon = new THREE.Sprite(new THREE.SpriteMaterial({
+  map: canvasTexture(THREE, 256, (ctx, s) => {
+    let g = ctx.createRadialGradient(s/2, s/2, 0, s/2, s/2, s/2);
+    g.addColorStop(0.0, 'rgba(255,250,230,1)');
+    g.addColorStop(0.28, 'rgba(255,246,220,0.95)');
+    g.addColorStop(0.34, 'rgba(250,235,210,0.35)');
+    g.addColorStop(1.0, 'rgba(250,230,200,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, s, s);
+  }),
+  transparent: true, depthWrite: false,
+}));
+moon.scale.setScalar(22);
+moon.position.set(11, 13, -40);
+scene.add(moon);
+
+// ---- 霞 ----
+const mistTex = glowTexture(THREE, 'rgba(190,160,220,0.5)');
+const mists = [];
+for (let i = 0; i < 7; i++) {
+  const m = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: mistTex, transparent: true, opacity: 0.05 + Math.random() * 0.05,
+    depthWrite: false,
+  }));
+  m.scale.set(40 + Math.random() * 30, 14 + Math.random() * 8, 1);
+  m.position.set((Math.random() - 0.5) * 50, -12 + Math.random() * 14, -25 - Math.random() * 15);
+  m.userData.speed = 0.15 + Math.random() * 0.2;
+  mists.push(m); scene.add(m);
+}
+
+// ---- 桜の花びら (instanced) ----
+const petalTex = canvasTexture(THREE, 64, (ctx, s) => {
+  ctx.translate(s/2, s/2);
+  const g = ctx.createRadialGradient(0, 6, 2, 0, 0, s/2);
+  g.addColorStop(0, 'rgba(255,235,244,0.98)');
+  g.addColorStop(0.6, 'rgba(248,190,215,0.92)');
+  g.addColorStop(1, 'rgba(235,150,190,0.75)');
+  ctx.fillStyle = g;
+  // petal: rounded with a notch at top
+  ctx.beginPath();
+  ctx.moveTo(0, -24);
+  ctx.bezierCurveTo(4, -30, 12, -26, 14, -14);
+  ctx.bezierCurveTo(18, 2, 10, 22, 0, 27);
+  ctx.bezierCurveTo(-10, 22, -18, 2, -14, -14);
+  ctx.bezierCurveTo(-12, -26, -4, -30, 0, -24);
+  ctx.fill();
+});
+const PETALS = 450;
+const petalGeo = new THREE.PlaneGeometry(1, 1);
+const petalMat = new THREE.MeshBasicMaterial({
+  map: petalTex, transparent: true, depthWrite: false, side: THREE.DoubleSide,
+  opacity: 0.95,
+});
+const petals = new THREE.InstancedMesh(petalGeo, petalMat, PETALS);
+const P = [];
+const AREA = { x: 56, yTop: 22, yBot: -20, z: 34 };
+for (let i = 0; i < PETALS; i++) {
+  P.push({
+    x: (Math.random() - 0.5) * AREA.x,
+    y: AREA.yBot + Math.random() * (AREA.yTop - AREA.yBot),
+    z: -AREA.z * Math.random() + 6,
+    fall: 0.9 + Math.random() * 1.6,
+    swayA: 0.8 + Math.random() * 1.6,
+    swayF: 0.4 + Math.random() * 0.7,
+    ph: Math.random() * Math.PI * 2,
+    rx: Math.random() * Math.PI * 2, ry: Math.random() * Math.PI * 2, rz: Math.random() * Math.PI * 2,
+    rxs: (Math.random() - 0.5) * 2.4, rys: (Math.random() - 0.5) * 2.4, rzs: (Math.random() - 0.5) * 1.6,
+    s: 0.32 + Math.random() * 0.4,
+  });
+}
+scene.add(petals);
+const dummy = new THREE.Object3D();
+
+// ---- 蛍のような微光 ----
+const sparkTex = glowTexture(THREE, 'rgba(255,225,245,1)');
+const SPARKS = 120;
+const sPos = new Float32Array(SPARKS * 3);
+for (let i = 0; i < SPARKS; i++) {
+  sPos[i*3] = (Math.random() - 0.5) * 50;
+  sPos[i*3+1] = (Math.random() - 0.5) * 34;
+  sPos[i*3+2] = -Math.random() * 30;
+}
+const sGeo = new THREE.BufferGeometry();
+sGeo.setAttribute('position', new THREE.BufferAttribute(sPos, 3));
+const sparks = new THREE.Points(sGeo, new THREE.PointsMaterial({
+  map: sparkTex, size: 0.5, transparent: true, opacity: 0.6,
+  depthWrite: false, blending: THREE.AdditiveBlending, color: 0xffd9ec,
+}));
+scene.add(sparks);
+
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const t = clock.getElapsedTime();
+  parallax.update();
+
+  for (let i = 0; i < PETALS; i++) {
+    const p = P[i];
+    p.y -= p.fall * dt;
+    p.x += Math.sin(t * p.swayF + p.ph) * p.swayA * dt;
+    p.rx += p.rxs * dt; p.ry += p.rys * dt; p.rz += p.rzs * dt;
+    if (p.y < AREA.yBot) { p.y = AREA.yTop; p.x = (Math.random() - 0.5) * AREA.x; }
+    dummy.position.set(p.x, p.y, p.z);
+    dummy.rotation.set(p.rx, p.ry, p.rz);
+    dummy.scale.setScalar(p.s);
+    dummy.updateMatrix();
+    petals.setMatrixAt(i, dummy.matrix);
+  }
+  petals.instanceMatrix.needsUpdate = true;
+
+  mists.forEach((m, i) => {
+    m.position.x += m.userData.speed * dt * (i % 2 ? 1 : -1);
+    if (m.position.x > 40) m.position.x = -40;
+    if (m.position.x < -40) m.position.x = 40;
+  });
+
+  sparks.material.opacity = 0.4 + Math.sin(t * 1.3) * 0.2;
+  sparks.rotation.y = t * 0.015;
+
+  camera.position.x = parallax.x * 2.6;
+  camera.position.y = -parallax.y * 1.8;
+  camera.lookAt(0, 0, -10);
+  renderer.render(scene, camera);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#07070f">
+<title>茂里 憲之 — Digital Meishi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;600&family=Cormorant+Garamond:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/base.css">
+<style>
+  body { background: radial-gradient(120% 100% at 50% 0%, #12122b 0%, #0a0a18 55%, #07070f 100%); }
+  .home {
+    position: fixed; inset: 0; z-index: 2;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 22px; padding: 24px;
+  }
+  .home-name {
+    text-align: center;
+    animation: riseIn 1.8s cubic-bezier(0.16,1,0.3,1) 0.2s both;
+  }
+  .home-name h1 { font-family: 'Shippori Mincho', serif; font-size: clamp(30px, 8vw, 44px); font-weight: 600; letter-spacing: 0.18em; }
+  .home-name p { margin-top: 8px; font-size: 14px; letter-spacing: 0.4em; text-indent: 0.4em; opacity: 0.7; }
+  .home-name small { display: block; margin-top: 14px; font-size: 11px; letter-spacing: 0.35em; text-indent: 0.35em; opacity: 0.45; font-family: system-ui, sans-serif; }
+  .qr-frame {
+    background: #fdfcf9; border-radius: 24px; padding: 18px;
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 20px 70px rgba(0,0,0,0.6), 0 0 60px var(--accent, rgba(120,120,255,0.25));
+    transition: box-shadow 0.6s; cursor: pointer;
+    animation: riseIn 1.8s cubic-bezier(0.16,1,0.3,1) 0.5s both;
+  }
+  .qr-frame canvas { display: block; border-radius: 10px; }
+  .qr-note { font-size: 12px; letter-spacing: 0.2em; opacity: 0.55; font-family: system-ui, sans-serif; animation: fadeIn 2s ease 0.9s both; }
+  .chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; animation: fadeIn 2s ease 1.1s both; }
+  .chip {
+    font-family: inherit; font-size: 14px; letter-spacing: 0.08em; color: #f4efe8;
+    padding: 9px 18px; border-radius: 999px; cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.22); background: rgba(255,255,255,0.05);
+    backdrop-filter: blur(8px); transition: all 0.3s;
+  }
+  .chip.active { background: rgba(255,255,255,0.92); color: #14141f; border-color: transparent; }
+  .direct { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 18px; animation: fadeIn 2s ease 1.3s both; }
+  .direct a {
+    color: #f4efe8; opacity: 0.6; text-decoration: none;
+    font-size: 13px; letter-spacing: 0.1em;
+    border-bottom: 1px solid rgba(255,255,255,0.25);
+    padding-bottom: 2px; transition: opacity 0.3s;
+  }
+  .direct a:hover { opacity: 1; }
+  .direct a::after { content: ' ↗'; opacity: 0.7; }
+  .hint { font-size: 11px; letter-spacing: 0.15em; opacity: 0.4; font-family: system-ui, sans-serif; text-align: center; animation: fadeIn 2s ease 1.4s both; }
+</style>
+</head>
+<body>
+<div id="bg"></div>
+<div class="home">
+  <div class="home-name">
+    <h1>茂里 憲之</h1>
+    <p>NORIYUKI MORI</p>
+    <small>DIGITAL MEISHI ─ SCAN TO RECEIVE</small>
+  </div>
+  <div class="qr-frame" id="qr-frame" title="開く">
+    <canvas id="qr" width="216" height="216"></canvas>
+  </div>
+  <div class="qr-note" id="note"></div>
+  <div class="chips" id="chips"></div>
+  <div class="direct" id="direct"></div>
+  <div class="hint">スキャンすると相手のスマホで3D名刺が開きます</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }</script>
+<script type="module">
+import * as THREE from 'three';
+import { createApp, createParallax, glowTexture } from './js/ui.js';
+
+// ---- QR logic ----
+const COUNTRIES = [
+  { code: 'jp', label: '日本',        accent: 'rgba(232,140,180,0.35)' },
+  { code: 'cn', label: '中国',        accent: 'rgba(200,60,50,0.30)'  },
+  { code: 'lk', label: 'ශ්‍රී ලංකා',   accent: 'rgba(40,200,190,0.30)' },
+  { code: 'mz', label: 'Moçambique', accent: 'rgba(240,140,60,0.30)' },
+  { code: 'cr', label: 'Costa Rica', accent: 'rgba(60,220,140,0.30)' },
+];
+const chipsEl = document.getElementById('chips');
+const noteEl = document.getElementById('note');
+const frame = document.getElementById('qr-frame');
+let current = 'jp';
+
+function pageUrl(code) {
+  if (location.protocol === 'file:') return location.href.replace(/index\.html.*$/, code + '.html');
+  return location.origin + '/' + code;
+}
+function render() {
+  const c = COUNTRIES.find(c => c.code === current);
+  QRCode.toCanvas(document.getElementById('qr'), pageUrl(current), {
+    width: 216, margin: 1, color: { dark: '#16161e', light: '#fdfcf9' },
+  });
+  noteEl.textContent = c.label + ' — ' + pageUrl(current).replace(/^https?:\/\//, '');
+  frame.style.setProperty('--accent', c.accent);
+  [...chipsEl.children].forEach(el => el.classList.toggle('active', el.dataset.code === current));
+}
+COUNTRIES.forEach(c => {
+  const b = document.createElement('button');
+  b.className = 'chip'; b.dataset.code = c.code; b.textContent = c.label;
+  b.addEventListener('click', () => { current = c.code; render(); });
+  chipsEl.appendChild(b);
+});
+frame.addEventListener('click', () => location.href = pageUrl(current));
+const directEl = document.getElementById('direct');
+COUNTRIES.forEach(c => {
+  const a = document.createElement('a');
+  a.href = c.code + '.html';
+  a.textContent = c.label;
+  directEl.appendChild(a);
+});
+render();
+
+// ---- 3D starfield background ----
+const { renderer, scene, camera } = createApp(THREE);
+camera.position.z = 30;
+const parallax = createParallax();
+
+const starTex = glowTexture(THREE, 'rgba(255,255,255,1)');
+const N = 900;
+const pos = new Float32Array(N * 3);
+const phase = new Float32Array(N);
+for (let i = 0; i < N; i++) {
+  pos[i*3]   = (Math.random() - 0.5) * 120;
+  pos[i*3+1] = (Math.random() - 0.5) * 90;
+  pos[i*3+2] = -Math.random() * 80;
+  phase[i] = Math.random() * Math.PI * 2;
+}
+const geo = new THREE.BufferGeometry();
+geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+const stars = new THREE.Points(geo, new THREE.PointsMaterial({
+  map: starTex, size: 0.7, transparent: true, opacity: 0.85,
+  depthWrite: false, blending: THREE.AdditiveBlending, color: 0xbfc8ff,
+}));
+scene.add(stars);
+
+// slow drifting nebula glows
+const nebulaColors = ['rgba(110,90,220,0.5)', 'rgba(60,140,200,0.4)', 'rgba(200,90,160,0.35)'];
+const nebulae = nebulaColors.map((col, i) => {
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: glowTexture(THREE, col), transparent: true, opacity: 0.35,
+    depthWrite: false, blending: THREE.AdditiveBlending,
+  }));
+  sp.scale.setScalar(60);
+  sp.position.set((i - 1) * 25, (i % 2 ? -10 : 10), -60);
+  scene.add(sp);
+  return sp;
+});
+
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const t = clock.getElapsedTime();
+  parallax.update();
+  stars.rotation.z = t * 0.008;
+  nebulae.forEach((n, i) => {
+    n.position.x += Math.sin(t * 0.05 + i * 2) * 0.01;
+    n.position.y += Math.cos(t * 0.04 + i) * 0.008;
+  });
+  camera.position.x = parallax.x * 2.2;
+  camera.position.y = -parallax.y * 1.6;
+  camera.lookAt(0, 0, -20);
+  renderer.render(scene, camera);
+});
+</script>
+</body>
+</html>

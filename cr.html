@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#04140f">
+<title>Noriyuki Mori — Morpho</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Shippori+Mincho:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/base.css">
+<style>
+  body {
+    background: linear-gradient(180deg, #020e0a 0%, #06251a 45%, #0a3a28 78%, #0f4a33 100%);
+    font-family: 'Cormorant Garamond', serif;
+  }
+  .name-main {
+    font-weight: 600; letter-spacing: 0.1em;
+    color: #ecfff5;
+    text-shadow: 0 0 40px rgba(80,200,255,0.45);
+  }
+  .name-sub { font-family: 'Shippori Mincho', serif; color: #cdeede; }
+  .country-nav a.active { color: #5fd6ff; opacity: 1; border-color: #5fd6ff; }
+</style>
+</head>
+<body>
+<div id="bg"></div>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }</script>
+<script type="module">
+import * as THREE from 'three';
+import { setupUI, createApp, createParallax, canvasTexture, glowTexture } from './js/ui.js';
+
+setupUI({
+  current: 'cr',
+  nameMain: 'Noriyuki Mori',
+  nameSub: '茂里 憲之',
+  titleMain: 'Ocupación principal: Desempleado',
+  titleSub: 'Actividades secundarias: Escritor · Investigador · Duelista',
+  qr: { dark: '#06251d', light: '#eefff6', glow: 'rgba(90,200,255,0.4)' },
+});
+
+const { renderer, scene, camera } = createApp(THREE);
+camera.position.set(0, 0, 24);
+const parallax = createParallax();
+
+// ---- モルフォ蝶 (blue morpho butterflies) ----
+const wingTex = canvasTexture(THREE, 128, (ctx, s) => {
+  const g = ctx.createLinearGradient(0, 0, s, 0);
+  g.addColorStop(0, 'rgba(240,255,255,0.95)');
+  g.addColorStop(0.35, 'rgba(90,190,255,0.95)');
+  g.addColorStop(0.8, 'rgba(40,110,235,0.9)');
+  g.addColorStop(1, 'rgba(20,60,180,0.0)');
+  ctx.fillStyle = g;
+  // forewing + hindwing silhouette (root at left edge, middle)
+  ctx.beginPath();
+  ctx.moveTo(2, s * 0.52);
+  ctx.bezierCurveTo(s*0.25, s*0.02, s*0.85, s*0.02, s*0.96, s*0.22);
+  ctx.bezierCurveTo(s*0.9, s*0.5, s*0.55, s*0.52, s*0.45, s*0.55);
+  ctx.bezierCurveTo(s*0.7, s*0.62, s*0.75, s*0.85, s*0.55, s*0.96);
+  ctx.bezierCurveTo(s*0.3, s*1.0, s*0.08, s*0.75, 2, s*0.58);
+  ctx.closePath(); ctx.fill();
+});
+function makeButterfly(scale) {
+  const grp = new THREE.Group();
+  const mat = () => new THREE.MeshBasicMaterial({
+    map: wingTex, transparent: true, depthWrite: false,
+    side: THREE.DoubleSide, blending: THREE.AdditiveBlending, opacity: 0.95,
+  });
+  const wingGeo = new THREE.PlaneGeometry(1, 1);
+  wingGeo.translate(0.5, 0, 0); // pivot at wing root
+  const L = new THREE.Group(), R = new THREE.Group();
+  const wl = new THREE.Mesh(wingGeo, mat());
+  const wr = new THREE.Mesh(wingGeo.clone(), mat());
+  L.add(wl); R.add(wr);
+  R.rotation.z = Math.PI; // mirror
+  grp.add(L, R);
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: glowTexture(THREE, 'rgba(90,180,255,0.8)'),
+    transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending,
+  }));
+  glow.scale.setScalar(2.6);
+  grp.add(glow);
+  grp.scale.setScalar(scale);
+  grp.userData = {
+    L, R,
+    flap: 4 + Math.random() * 3,
+    ph: Math.random() * 6.28,
+    cx: (Math.random() - 0.5) * 34,
+    cy: (Math.random() - 0.5) * 22,
+    cz: -6 - Math.random() * 22,
+    rx: 4 + Math.random() * 8,
+    ry: 2 + Math.random() * 5,
+    sp: 0.12 + Math.random() * 0.2,
+  };
+  return grp;
+}
+const butterflies = [];
+for (let i = 0; i < 12; i++) {
+  const b = makeButterfly(0.6 + Math.random() * 1.1);
+  butterflies.push(b); scene.add(b);
+}
+
+// ---- 蛍 (fireflies) ----
+const flyTex = glowTexture(THREE, 'rgba(220,255,160,1)');
+const FLIES = 130;
+const fDat = [];
+const fPos = new Float32Array(FLIES * 3);
+for (let i = 0; i < FLIES; i++) {
+  fDat.push({
+    x: (Math.random() - 0.5) * 48, y: (Math.random() - 0.5) * 34, z: -32 + Math.random() * 30,
+    ph: Math.random() * 6.28, sp: 0.25 + Math.random() * 0.5, r: 0.6 + Math.random() * 1.6,
+  });
+}
+const fGeo = new THREE.BufferGeometry();
+fGeo.setAttribute('position', new THREE.BufferAttribute(fPos, 3));
+const flies = new THREE.Points(fGeo, new THREE.PointsMaterial({
+  map: flyTex, size: 0.55, transparent: true, opacity: 0.75,
+  depthWrite: false, blending: THREE.AdditiveBlending, color: 0xd8ffa0,
+}));
+scene.add(flies);
+
+// ---- 熱帯の葉 (foliage silhouettes at edges) ----
+const leafTex = canvasTexture(THREE, 256, (ctx, s) => {
+  ctx.fillStyle = 'rgba(2,14,9,0.92)';
+  // fan of long leaves
+  for (let i = 0; i < 9; i++) {
+    const a = -Math.PI/2 + (i - 4) * 0.28;
+    ctx.save();
+    ctx.translate(s/2, s);
+    ctx.rotate(a);
+    ctx.beginPath();
+    ctx.ellipse(0, -s*0.36, s*0.05, s*0.4, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+});
+const corners = [
+  { x: -1, y: -1, r: 0.5 }, { x: 1, y: -1, r: -0.5 },
+  { x: -1, y: 1, r: 2.6 }, { x: 1, y: 1, r: -2.6 },
+];
+const leaves = corners.map((c) => {
+  const m = new THREE.Mesh(
+    new THREE.PlaneGeometry(26, 26),
+    new THREE.MeshBasicMaterial({ map: leafTex, transparent: true, depthWrite: false })
+  );
+  m.position.set(c.x * 17, c.y * 13, -8);
+  m.rotation.z = c.r;
+  m.userData.baseR = c.r;
+  scene.add(m);
+  return m;
+});
+
+// ---- 木漏れ日 (moonbeams) ----
+for (let i = 0; i < 2; i++) {
+  const beam = new THREE.Mesh(
+    new THREE.PlaneGeometry(6, 44),
+    new THREE.MeshBasicMaterial({
+      map: canvasTexture(THREE, 128, (ctx, s) => {
+        const g = ctx.createLinearGradient(0, 0, 0, s);
+        g.addColorStop(0, 'rgba(150,255,210,0.22)');
+        g.addColorStop(1, 'rgba(150,255,210,0)');
+        ctx.fillStyle = g; ctx.fillRect(0, 0, s, s);
+      }),
+      transparent: true, opacity: 0.4, depthWrite: false, blending: THREE.AdditiveBlending,
+    })
+  );
+  beam.position.set(-10 + i * 20, 8, -28);
+  beam.rotation.z = 0.22 - i * 0.4;
+  scene.add(beam);
+}
+
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const t = clock.getElapsedTime();
+  parallax.update();
+
+  butterflies.forEach((b) => {
+    const d = b.userData;
+    // wandering path
+    b.position.x = d.cx + Math.sin(t * d.sp + d.ph) * d.rx;
+    b.position.y = d.cy + Math.sin(t * d.sp * 1.4 + d.ph * 2) * d.ry;
+    b.position.z = d.cz + Math.cos(t * d.sp * 0.8 + d.ph) * 4;
+    // face travel direction
+    b.rotation.y = Math.cos(t * d.sp + d.ph) > 0 ? 0.5 : Math.PI - 0.5;
+    b.rotation.z = Math.sin(t * d.sp * 1.4 + d.ph * 2) * 0.3;
+    // flap
+    const f = (Math.sin(t * d.flap + d.ph) * 0.5 + 0.5) * 1.15 + 0.15;
+    d.L.rotation.x = f;
+    d.R.rotation.x = -f;
+  });
+
+  const pos = flies.geometry.attributes.position.array;
+  for (let i = 0; i < FLIES; i++) {
+    const d = fDat[i];
+    pos[i*3]   = d.x + Math.sin(t * d.sp + d.ph) * d.r;
+    pos[i*3+1] = d.y + Math.sin(t * d.sp * 0.7 + d.ph * 2) * d.r;
+    pos[i*3+2] = d.z;
+  }
+  flies.geometry.attributes.position.needsUpdate = true;
+  flies.material.opacity = 0.55 + Math.sin(t * 2.6) * 0.2;
+
+  leaves.forEach((m, i) => {
+    m.rotation.z = m.userData.baseR + Math.sin(t * 0.5 + i) * 0.02;
+  });
+
+  camera.position.x = parallax.x * 3;
+  camera.position.y = -parallax.y * 2;
+  camera.lookAt(0, 0, -12);
+  renderer.render(scene, camera);
+});
+</script>
+</body>
+</html>

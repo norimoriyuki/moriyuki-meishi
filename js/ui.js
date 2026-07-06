@@ -4,28 +4,34 @@ const X_HANDLE = '@kushiro_mtg';
 
 const X_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>';
 
-const COUNTRIES = [
-  ['jp', '日本'],
-  ['cn', '中国'],
-  ['lk', 'ලංකා'],
-  ['mz', 'MOÇ'],
-  ['cr', 'CR'],
-];
-
-function navHTML(current) {
-  const links = COUNTRIES.map(([code, label]) =>
-    `<a href="${code}.html" class="${code === current ? 'active' : ''}">${label}</a>`
-  ).join('');
-  return `<a href="index.html" title="QR">◈</a>${links}`;
+// draw a QR onto a canvas using the qrcode-generator global (window.qrcode)
+export function drawQR(canvas, text, dark, light, cssSize = 128) {
+  if (typeof window.qrcode !== 'function') return;
+  const qr = window.qrcode(0, 'M'); // auto version, M error correction
+  qr.addData(text);
+  qr.make();
+  const n = qr.getModuleCount();
+  const quiet = 2;
+  const cell = Math.max(2, Math.floor((cssSize * 2) / (n + quiet * 2)));
+  const px = cell * (n + quiet * 2);
+  canvas.width = px;
+  canvas.height = px;
+  canvas.style.width = canvas.style.height = cssSize + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = light;
+  ctx.fillRect(0, 0, px, px);
+  ctx.fillStyle = dark;
+  for (let r = 0; r < n; r++)
+    for (let c = 0; c < n; c++)
+      if (qr.isDark(r, c)) ctx.fillRect((c + quiet) * cell, (r + quiet) * cell, cell, cell);
 }
 
 export function setupUI(cfg) {
-  // cfg: { current, nameMain, nameSub, nameExtra?, mainClass?,
+  // cfg: { nameMain, nameSub, nameExtra?, mainClass?,
   //        titleMain, titleSub, qr: { dark, light, glow } }
   const ui = document.createElement('div');
   ui.className = 'ui';
   ui.innerHTML = `
-    <nav class="country-nav">${navHTML(cfg.current)}</nav>
     <div class="name-block">
       <h1 class="name-main ${cfg.mainClass || ''}">${cfg.nameMain}</h1>
       <div class="name-divider"></div>
@@ -44,14 +50,7 @@ export function setupUI(cfg) {
     </div>`;
   document.body.appendChild(ui);
 
-  const canvas = ui.querySelector('.qr-canvas');
-  if (window.QRCode) {
-    window.QRCode.toCanvas(canvas, X_URL, {
-      width: 128, margin: 1,
-      color: { dark: cfg.qr.dark, light: cfg.qr.light },
-    });
-    canvas.style.width = canvas.style.height = '128px';
-  }
+  drawQR(ui.querySelector('.qr-canvas'), X_URL, cfg.qr.dark, cfg.qr.light, 128);
 }
 
 // pointer + gyro parallax; returns state with smoothed x/y in [-1,1]

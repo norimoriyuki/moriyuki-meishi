@@ -67,11 +67,11 @@
   <div class="hint">スキャンすると相手のスマホで3D名刺が開きます</div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }</script>
 <script type="module">
 import * as THREE from 'three';
-import { createApp, createParallax, glowTexture } from './js/ui.js';
+import { createApp, createParallax, glowTexture, drawQR } from './js/ui.js';
 
 // ---- QR logic ----
 const COUNTRIES = [
@@ -92,9 +92,7 @@ function pageUrl(code) {
 }
 function render() {
   const c = COUNTRIES.find(c => c.code === current);
-  QRCode.toCanvas(document.getElementById('qr'), pageUrl(current), {
-    width: 216, margin: 1, color: { dark: '#16161e', light: '#fdfcf9' },
-  });
+  drawQR(document.getElementById('qr'), pageUrl(current), '#16161e', '#fdfcf9', 216);
   noteEl.textContent = c.label + ' — ' + pageUrl(current).replace(/^https?:\/\//, '');
   frame.style.setProperty('--accent', c.accent);
   [...chipsEl.children].forEach(el => el.classList.toggle('active', el.dataset.code === current));

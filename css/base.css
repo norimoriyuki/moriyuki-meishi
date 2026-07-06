@@ -23,19 +23,6 @@ body {
 }
 .ui a, .ui button { pointer-events: auto; }
 
-/* country nav */
-.country-nav {
-  display: flex; gap: 14px; align-self: flex-end;
-  font-size: 12px; letter-spacing: 0.15em;
-  animation: fadeIn 1.5s ease 0.2s both;
-}
-.country-nav a {
-  color: currentColor; opacity: 0.45; text-decoration: none;
-  padding: 4px 2px; transition: opacity 0.3s;
-}
-.country-nav a:hover { opacity: 0.9; }
-.country-nav a.active { opacity: 1; border-bottom: 1px solid currentColor; }
-
 /* name block */
 .name-block {
   flex: 1; display: flex; flex-direction: column;

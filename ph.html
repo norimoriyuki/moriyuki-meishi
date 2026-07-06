@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="fil">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#03354d">
+<title>Noriyuki Mori — Dagat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Shippori+Mincho:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/base.css">
+<style>
+  body {
+    background: linear-gradient(180deg, #2ba8c9 0%, #0d7aa8 28%, #06598c 55%, #033a66 80%, #021f42 100%);
+    font-family: 'Cormorant Garamond', serif;
+  }
+  .name-main {
+    font-weight: 600; letter-spacing: 0.1em;
+    color: #f2fcff;
+    text-shadow: 0 0 40px rgba(120,230,255,0.5);
+  }
+  .name-sub { font-family: 'Shippori Mincho', serif; color: #d3f1f7; }
+</style>
+</head>
+<body>
+<div id="bg"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }</script>
+<script type="module">
+import * as THREE from 'three';
+import { setupUI, createApp, createParallax, canvasTexture, glowTexture } from './js/ui.js';
+
+setupUI({
+  nameMain: 'Noriyuki Mori',
+  nameSub: '茂里 憲之',
+  titleMain: 'Pangunahing hanapbuhay: Walang trabaho',
+  titleSub: 'Mga sideline: Manunulat · Mananaliksik · Duwelista',
+  qr: { dark: '#032b45', light: '#eefaff', glow: 'rgba(90,215,255,0.45)' },
+});
+
+const { renderer, scene, camera } = createApp(THREE);
+camera.position.set(0, 0, 26);
+const parallax = createParallax();
+
+// ---- 水面の光 (surface glow above) ----
+const surface = new THREE.Sprite(new THREE.SpriteMaterial({
+  map: glowTexture(THREE, 'rgba(200,245,255,0.95)'),
+  transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending,
+}));
+surface.scale.set(90, 26, 1);
+surface.position.set(0, 26, -40);
+scene.add(surface);
+
+// ---- 光の帯 (god rays) ----
+const rayTex = canvasTexture(THREE, 128, (ctx, s) => {
+  const g = ctx.createLinearGradient(0, 0, 0, s);
+  g.addColorStop(0, 'rgba(190,240,255,0.5)');
+  g.addColorStop(1, 'rgba(190,240,255,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, s, s);
+});
+const rays = [];
+for (let i = 0; i < 5; i++) {
+  const r = new THREE.Mesh(
+    new THREE.PlaneGeometry(3.5 + Math.random() * 4, 55),
+    new THREE.MeshBasicMaterial({
+      map: rayTex, transparent: true, opacity: 0.16 + Math.random() * 0.14,
+      depthWrite: false, blending: THREE.AdditiveBlending,
+    })
+  );
+  r.position.set(-20 + i * 10 + (Math.random() - 0.5) * 4, 8, -30 + i * 2);
+  r.rotation.z = 0.28 - i * 0.12;
+  r.userData = { base: r.rotation.z, ph: Math.random() * 6.28 };
+  rays.push(r); scene.add(r);
+}
+
+// ---- 魚の群れ (school of fish, instanced) ----
+const fishTex = canvasTexture(THREE, 64, (ctx, s) => {
+  const g = ctx.createLinearGradient(0, 0, s, 0);
+  g.addColorStop(0, 'rgba(210,240,255,0.95)');
+  g.addColorStop(0.6, 'rgba(120,190,230,0.9)');
+  g.addColorStop(1, 'rgba(40,90,140,0.85)');
+  ctx.fillStyle = g;
+  // body
+  ctx.beginPath();
+  ctx.ellipse(s*0.42, s*0.5, s*0.30, s*0.13, 0, 0, Math.PI*2);
+  ctx.fill();
+  // tail
+  ctx.beginPath();
+  ctx.moveTo(s*0.68, s*0.5);
+  ctx.lineTo(s*0.92, s*0.32);
+  ctx.lineTo(s*0.92, s*0.68);
+  ctx.closePath(); ctx.fill();
+});
+const FISH = 70;
+const fishGeo = new THREE.PlaneGeometry(1.4, 0.7);
+const fishMat = new THREE.MeshBasicMaterial({
+  map: fishTex, transparent: true, depthWrite: false, side: THREE.DoubleSide, opacity: 0.9,
+});
+const fishes = new THREE.InstancedMesh(fishGeo, fishMat, FISH);
+const FD = [];
+for (let i = 0; i < FISH; i++) {
+  const school = i < 45; // main school + stragglers
+  FD.push({
+    x: (Math.random() - 0.5) * 60,
+    y: school ? -2 + Math.random() * 10 : (Math.random() - 0.5) * 26,
+    z: -12 - Math.random() * 22,
+    sp: school ? 3.2 + Math.random() * 1.2 : 1.5 + Math.random() * 1.5,
+    amp: 0.6 + Math.random() * 1.2,
+    ph: Math.random() * 6.28,
+    s: school ? 0.5 + Math.random() * 0.35 : 0.7 + Math.random() * 0.5,
+  });
+}
+scene.add(fishes);
+const dummy = new THREE.Object3D();
+
+// ---- 泡 (bubbles) ----
+const bubbleTex = canvasTexture(THREE, 48, (ctx, s) => {
+  ctx.strokeStyle = 'rgba(220,250,255,0.9)';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.arc(s/2, s/2, s*0.36, 0, Math.PI*2); ctx.stroke();
+  ctx.fillStyle = 'rgba(235,252,255,0.85)';
+  ctx.beginPath(); ctx.arc(s*0.38, s*0.36, s*0.09, 0, Math.PI*2); ctx.fill();
+});
+const BUB = 90;
+const bDat = [];
+const bPos = new Float32Array(BUB * 3);
+for (let i = 0; i < BUB; i++) {
+  bDat.push({
+    x: (Math.random() - 0.5) * 50, y: -20 + Math.random() * 40, z: -28 + Math.random() * 24,
+    rise: 1.2 + Math.random() * 2.2, ph: Math.random() * 6.28, sw: 0.6 + Math.random() * 1.0,
+  });
+}
+const bGeo = new THREE.BufferGeometry();
+bGeo.setAttribute('position', new THREE.BufferAttribute(bPos, 3));
+const bubbles = new THREE.Points(bGeo, new THREE.PointsMaterial({
+  map: bubbleTex, size: 0.7, transparent: true, opacity: 0.6,
+  depthWrite: false, blending: THREE.AdditiveBlending,
+}));
+scene.add(bubbles);
+
+// ---- 微光プランクトン (sparkles) ----
+const sparkTex = glowTexture(THREE, 'rgba(200,255,250,1)');
+const SP = 200;
+const spPos = new Float32Array(SP * 3);
+for (let i = 0; i < SP; i++) {
+  spPos[i*3] = (Math.random() - 0.5) * 60;
+  spPos[i*3+1] = (Math.random() - 0.5) * 40;
+  spPos[i*3+2] = -35 + Math.random() * 30;
+}
+const spGeo = new THREE.BufferGeometry();
+spGeo.setAttribute('position', new THREE.BufferAttribute(spPos, 3));
+const sparks = new THREE.Points(spGeo, new THREE.PointsMaterial({
+  map: sparkTex, size: 0.35, transparent: true, opacity: 0.55,
+  depthWrite: false, blending: THREE.AdditiveBlending, color: 0xbffff2,
+}));
+scene.add(sparks);
+
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const t = clock.getElapsedTime();
+  parallax.update();
+
+  for (let i = 0; i < FISH; i++) {
+    const d = FD[i];
+    d.x += d.sp * dt;
+    if (d.x > 34) { d.x = -34; d.y = -4 + Math.random() * 12; }
+    const y = d.y + Math.sin(t * 2 + d.ph) * d.amp * 0.3;
+    dummy.position.set(d.x, y, d.z);
+    dummy.rotation.set(0, Math.PI, Math.sin(t * 3 + d.ph) * 0.12); // face right→left flip: texture faces left; PI flips to travel direction
+    dummy.scale.setScalar(d.s);
+    dummy.updateMatrix();
+    fishes.setMatrixAt(i, dummy.matrix);
+  }
+  fishes.instanceMatrix.needsUpdate = true;
+
+  const pos = bubbles.geometry.attributes.position.array;
+  for (let i = 0; i < BUB; i++) {
+    const d = bDat[i];
+    d.y += d.rise * dt;
+    if (d.y > 22) d.y = -20;
+    pos[i*3]   = d.x + Math.sin(t * d.sw + d.ph) * 0.8;
+    pos[i*3+1] = d.y;
+    pos[i*3+2] = d.z;
+  }
+  bubbles.geometry.attributes.position.needsUpdate = true;
+
+  rays.forEach((r) => {
+    r.rotation.z = r.userData.base + Math.sin(t * 0.3 + r.userData.ph) * 0.05;
+    r.material.opacity = 0.14 + (Math.sin(t * 0.5 + r.userData.ph) * 0.5 + 0.5) * 0.14;
+  });
+  sparks.material.opacity = 0.4 + Math.sin(t * 1.8) * 0.18;
+  surface.material.opacity = 0.5 + Math.sin(t * 0.6) * 0.08;
+
+  camera.position.x = parallax.x * 3;
+  camera.position.y = -parallax.y * 2;
+  camera.lookAt(0, 0, -15);
+  renderer.render(scene, camera);
+});
+</script>
+</body>
+</html>

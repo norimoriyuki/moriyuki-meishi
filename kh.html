@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="km">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#141031">
+<title>ណូរីយូគី ម៉ូរី — អង្គរវត្ត</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Khmer:wght@500;600&family=Cormorant+Garamond:wght@500&family=Shippori+Mincho:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/base.css">
+<style>
+  body {
+    background: linear-gradient(180deg, #100c2c 0%, #33174a 32%, #7c2f4c 58%, #c65f38 80%, #eda04e 100%);
+    font-family: 'Noto Serif Khmer', 'Cormorant Garamond', serif;
+  }
+  .name-main {
+    font-size: clamp(32px, 9vw, 58px);
+    color: #fdf3dd;
+    text-shadow: 0 0 40px rgba(245,180,90,0.45);
+  }
+  .name-sub { font-family: 'Cormorant Garamond', serif; color: #f3dcb8; }
+  .name-extra { font-family: 'Shippori Mincho', serif; color: #e5c9a0; }
+</style>
+</head>
+<body>
+<div id="bg"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }</script>
+<script type="module">
+import * as THREE from 'three';
+import { setupUI, createApp, createParallax, canvasTexture, glowTexture } from './js/ui.js';
+
+setupUI({
+  nameMain: 'ណូរីយូគី ម៉ូរី',
+  nameSub: 'NORIYUKI MORI',
+  nameExtra: '茂里 憲之',
+  titleMain: 'មុខរបរចម្បង៖ គ្មានការងារ',
+  titleSub: 'មុខរបរបន្ទាប់បន្សំ៖ អ្នកនិពន្ធ · អ្នកស្រាវជ្រាវ · អ្នកប្រកួតគូ',
+  qr: { dark: '#2a1410', light: '#fff5e4', glow: 'rgba(240,170,80,0.45)' },
+});
+
+const { renderer, scene, camera } = createApp(THREE);
+camera.position.set(0, 0, 26);
+const parallax = createParallax();
+
+// ---- 暁の太陽 (dawn glow behind the temple) ----
+const dawn = new THREE.Sprite(new THREE.SpriteMaterial({
+  map: canvasTexture(THREE, 256, (ctx, s) => {
+    const g = ctx.createRadialGradient(s/2, s/2, 0, s/2, s/2, s/2);
+    g.addColorStop(0, 'rgba(255,225,160,1)');
+    g.addColorStop(0.3, 'rgba(255,185,95,0.9)');
+    g.addColorStop(0.6, 'rgba(250,140,70,0.35)');
+    g.addColorStop(1, 'rgba(245,120,60,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, s, s);
+  }),
+  transparent: true, depthWrite: false,
+}));
+dawn.scale.setScalar(42);
+dawn.position.set(0, -6, -55);
+scene.add(dawn);
+
+// ---- アンコールワット silhouette ----
+function tower(ctx, cx, baseY, w, h) {
+  const steps = 7;
+  for (let i = 0; i < steps; i++) {
+    const t = i / steps;
+    const lw = w * (1 - t * 0.72);
+    const lh = h / steps;
+    ctx.fillRect(cx - lw / 2, baseY - (i + 1) * lh, lw, lh + 1);
+  }
+  ctx.beginPath();
+  ctx.moveTo(cx - w * 0.13, baseY - h);
+  ctx.lineTo(cx, baseY - h - w * 0.4);
+  ctx.lineTo(cx + w * 0.13, baseY - h);
+  ctx.closePath(); ctx.fill();
+}
+const angkorTex = canvasTexture(THREE, 1024, (ctx, s) => {
+  ctx.fillStyle = '#170b1a';
+  const base = s * 0.86;
+  // long gallery walls
+  ctx.fillRect(s * 0.03, base - s * 0.05, s * 0.94, s * 0.05);
+  ctx.fillRect(s * 0.10, base - s * 0.10, s * 0.80, s * 0.05);
+  // quincunx towers: center tallest, two mid, two outer
+  tower(ctx, s * 0.50, base - s * 0.10, s * 0.135, s * 0.42);
+  tower(ctx, s * 0.335, base - s * 0.10, s * 0.105, s * 0.30);
+  tower(ctx, s * 0.665, base - s * 0.10, s * 0.105, s * 0.30);
+  tower(ctx, s * 0.175, base - s * 0.05, s * 0.09, s * 0.24);
+  tower(ctx, s * 0.825, base - s * 0.05, s * 0.09, s * 0.24);
+  // gate bump in the wall
+  ctx.fillRect(s * 0.47, base - s * 0.13, s * 0.06, s * 0.03);
+});
+const angkor = new THREE.Mesh(
+  new THREE.PlaneGeometry(58, 58),
+  new THREE.MeshBasicMaterial({ map: angkorTex, transparent: true, depthWrite: false })
+);
+angkor.position.set(0, 17.5, -30);
+scene.add(angkor);
+
+// ---- 聖池の反射 (moat reflection) ----
+const reflection = new THREE.Mesh(
+  new THREE.PlaneGeometry(58, 58),
+  new THREE.MeshBasicMaterial({
+    map: angkorTex, transparent: true, opacity: 0.22, depthWrite: false,
+  })
+);
+reflection.scale.y = -1;
+reflection.position.set(0, -24.3, -30); // base of towers ≈ y=-3.4, mirrored below
+scene.add(reflection);
+
+// water sheen lines
+const sheenTex = glowTexture(THREE, 'rgba(255,190,110,0.8)');
+const sheens = [];
+for (let i = 0; i < 6; i++) {
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: sheenTex, transparent: true, opacity: 0.10 + Math.random() * 0.10,
+    depthWrite: false, blending: THREE.AdditiveBlending,
+  }));
+  sp.scale.set(16 + Math.random() * 22, 0.5 + Math.random() * 0.9, 1);
+  sp.position.set((Math.random() - 0.5) * 44, -8 - Math.random() * 9, -24);
+  sp.userData.speed = (0.3 + Math.random() * 0.5) * (i % 2 ? 1 : -1);
+  sheens.push(sp); scene.add(sp);
+}
+
+// ---- 星 (fading above) ----
+const starTex = glowTexture(THREE, 'rgba(255,240,215,1)');
+const STARS = 400;
+const stPos = new Float32Array(STARS * 3);
+for (let i = 0; i < STARS; i++) {
+  stPos[i*3] = (Math.random() - 0.5) * 110;
+  stPos[i*3+1] = 6 + Math.random() * 40;
+  stPos[i*3+2] = -70 - Math.random() * 10;
+}
+const stGeo = new THREE.BufferGeometry();
+stGeo.setAttribute('position', new THREE.BufferAttribute(stPos, 3));
+const stars = new THREE.Points(stGeo, new THREE.PointsMaterial({
+  map: starTex, size: 0.5, transparent: true, opacity: 0.8,
+  depthWrite: false, blending: THREE.AdditiveBlending, color: 0xffeed0,
+}));
+scene.add(stars);
+
+// ---- 金色の砂塵 (floating golden motes) ----
+const moteTex = glowTexture(THREE, 'rgba(255,200,120,1)');
+const MOTES = 150;
+const mDat = [];
+const mPos = new Float32Array(MOTES * 3);
+for (let i = 0; i < MOTES; i++) {
+  mDat.push({
+    x: (Math.random() - 0.5) * 50, y: -16 + Math.random() * 32, z: -25 + Math.random() * 22,
+    rise: 0.25 + Math.random() * 0.6, ph: Math.random() * 6.28, sw: 0.3 + Math.random() * 0.7,
+  });
+}
+const mGeo = new THREE.BufferGeometry();
+mGeo.setAttribute('position', new THREE.BufferAttribute(mPos, 3));
+const motes = new THREE.Points(mGeo, new THREE.PointsMaterial({
+  map: moteTex, size: 0.45, transparent: true, opacity: 0.7,
+  depthWrite: false, blending: THREE.AdditiveBlending, color: 0xffcf8a,
+}));
+scene.add(motes);
+
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const t = clock.getElapsedTime();
+  parallax.update();
+
+  dawn.material.opacity = 0.9 + Math.sin(t * 0.7) * 0.08;
+  stars.material.opacity = 0.55 + Math.sin(t * 1.2) * 0.25;
+  reflection.material.opacity = 0.20 + Math.sin(t * 0.9) * 0.04;
+
+  sheens.forEach((sp) => {
+    sp.position.x += sp.userData.speed * dt;
+    if (sp.position.x > 30) sp.position.x = -30;
+    if (sp.position.x < -30) sp.position.x = 30;
+  });
+
+  const pos = motes.geometry.attributes.position.array;
+  for (let i = 0; i < MOTES; i++) {
+    const d = mDat[i];
+    d.y += d.rise * dt;
+    if (d.y > 16) d.y = -16;
+    pos[i*3]   = d.x + Math.sin(t * d.sw + d.ph) * 1.2;
+    pos[i*3+1] = d.y;
+    pos[i*3+2] = d.z;
+  }
+  motes.geometry.attributes.position.needsUpdate = true;
+
+  camera.position.x = parallax.x * 2.6;
+  camera.position.y = -parallax.y * 1.8;
+  camera.lookAt(0, -1, -25);
+  renderer.render(scene, camera);
+});
+</script>
+</body>
+</html>
